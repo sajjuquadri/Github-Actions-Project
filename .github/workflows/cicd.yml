@@ -21,6 +21,7 @@ jobs:
 
   security-check:
     runs-on: ubuntu-latest
+    needs: compile
     steps:
     - uses: actions/checkout@v4
     - name: trivy fs scan
@@ -35,7 +36,7 @@ jobs:
       run: trivy fs --format table -o fs-report.json .
 
     - name: Gitleaks installations
-      run:  sudo apt install gitleaks apt-key
+      run:  sudo apt install gitleaks -y
 
     - name: Gitleaks code-scan
       run: gitleaks detect source . -r gitleaks-report.json -f json
