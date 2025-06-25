@@ -34,9 +34,9 @@ jobs:
     - name: unit test cases
       run: mvn test
   
-build_sonar_scan:
-  runs-on: self-hosted
-  needs: test
+  build_sonar_scan:
+    runs-on: self-hosted
+    needs: test
 
     steps:
     - uses: actions/checkout@v4
