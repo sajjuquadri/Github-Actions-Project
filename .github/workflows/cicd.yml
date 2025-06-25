@@ -92,6 +92,23 @@ jobs:
       with:
         push: true
         tags: sajjjuquadri/bankapp:latest
+        
+  deploy_container:
+    runs-on: self-hosted
+    needs: build_docker_image_and_push
+
+    steps:
+    - name: Pull Docker image from Docker Hub (optional)
+      run: docker pull sajjjuquadri/bankapp:latest
+
+    - name: Stop and remove existing container if exists
+      run: |
+        docker stop bankapp-container || true
+        docker rm bankapp-container || true
+
+    - name: Run Docker container
+      run: |
+        docker run -d --name bankapp-container -p 8080:8080 sajjjuquadri/bankapp:latest
   
 
 
