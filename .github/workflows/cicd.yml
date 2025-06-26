@@ -1,0 +1,115 @@
+name: CICD Pipeline 
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  compile:
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+    - name: Build with Maven
+      run: mvn compile
+      
+  test:
+    runs-on: self-hosted
+    needs: compile
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+    - name: unit test cases
+      run: mvn test
+  
+  build_sonar_scan:
+    runs-on: self-hosted
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+    - name: build project 
+      run: mvn package
+    - name: upload jar artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-jar
+        path: target/*.jar
+
+    - uses: actions/checkout@v4
+      with:
+        # Disabling shallow clones is recommended for improving the relevancy of reporting
+        fetch-depth: 0
+    - name: SonarQube Scan
+      uses: SonarSource/sonarqube-scan-action@v5.2.0 # Ex: v4.1.0, See the latest version at https://github.com/marketplace/actions/official-sonarqube-scan
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+
+  build_docker_image_and_push:
+    runs-on: self-hosted
+    needs:   build_sonar_scan
+    steps:
+    - uses: actions/checkout@v4
+    - name: Download jar artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: app-jar
+        path: app # this will download JAR to ./app folder
+    - name: Move jar to current directory
+      run: mv app/*.jar .
+
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ vars.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Build and push
+      uses: docker/build-push-action@v6
+      with:
+        push: true
+        tags: sajjjuquadri/bankapp:latest
+        
+  deploy_container:
+    runs-on: self-hosted
+    needs: build_docker_image_and_push
+
+    steps:
+    - name: Pull Docker image from Docker Hub (optional)
+      run: docker pull sajjjuquadri/bankapp:latest
+
+    - name: Stop and remove existing container if exists
+      run: |
+        docker stop bankapp-container || true
+        docker rm bankapp-container || true
+
+    - name: Run Docker container
+      run: |
+        docker run -d --name bankapp-container -p 8080:8080 sajjjuquadri/bankapp:latest
+  
+
+
+
